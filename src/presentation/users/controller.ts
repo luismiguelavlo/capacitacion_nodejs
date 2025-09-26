@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import { CreatorUserService } from "./services/creator-user.service";
 import { FinderAllUserService } from "./services/finder-all-user.service";
 import { ConsumePaService } from "./services/consume-pa.service";
+import { ExamplePa2Service } from "./services/example-pa-2.service";
 
 export class UserController {
   constructor(
     private readonly creatorUserService: CreatorUserService,
     private readonly finderAllUserService: FinderAllUserService,
-    private readonly consumePaService: ConsumePaService
+    private readonly consumePaService: ConsumePaService,
+    private readonly examplePa2Service: ExamplePa2Service
   ) {}
 
   register = (req: Request, res: Response) => {
@@ -49,6 +51,38 @@ export class UserController {
       }
 
       this.consumePaService
+        .execute(payStatus)
+        .then((msg) => {
+          return res.status(200).json(msg);
+        })
+        .catch((err) => {
+          return res.status(500).json({
+            message: "internal server error",
+          });
+        });
+    } catch (error) {
+      return res.status(400).json({
+        error: "Error en los parámetros de entrada",
+        message: error instanceof Error ? error.message : "Error desconocido",
+      });
+    }
+  };
+
+  examplePa2 = (req: Request, res: Response) => {
+    try {
+      // Obtener el parámetro desde query string: /example_pa2?payStatus=888
+      const payStatus = req.query.payStatus
+        ? parseInt(req.query.payStatus as string)
+        : 888;
+
+      if (req.query.payStatus && isNaN(payStatus)) {
+        return res.status(400).json({
+          error: "El parámetro 'payStatus' debe ser un número",
+          example: "/example_pa2?payStatus=888",
+        });
+      }
+
+      this.examplePa2Service
         .execute(payStatus)
         .then((msg) => {
           return res.status(200).json(msg);

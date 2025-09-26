@@ -223,24 +223,12 @@ npm start        # Ejecutar versión compilada
 
 ### Error de parámetros en PA
 
-- Verifica que el nombre del parámetro coincida: `ESTA_PAG` (no `ESTADO_PAG`)
+- Verifica que el nombre del parámetro coincida: `ESTA_PAG`
 - Confirma que el procedimiento almacenado existe en la base de datos
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia ISC.
 
 ## 👨‍💻 Autor
 
-**syc** - Desarrollador del proyecto
+**syc** - Luis Miguel Avendaño Lozano
 
 ---
 
