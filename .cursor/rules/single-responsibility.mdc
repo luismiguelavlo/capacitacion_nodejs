@@ -1,0 +1,281 @@
+---
+globs: *.ts,*.js
+description: Single Responsibility Principle Implementation
+---
+
+# Single Responsibility Principle (SRP)
+
+**"A class should have only one reason to change"**
+
+## Service Layer SRP Implementation
+
+### ✅ Correct Service Implementation
+
+Each service should handle only one specific business operation:
+
+```typescript
+// Good - Single responsibility: User creation only
+export class CreatorUserService {
+  async execute(data: CreateUserData): Promise<User> {
+    try {
+      const user = await User.create({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+      return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+// Good - Single responsibility: User retrieval only
+export class FinderAllUserService {
+  async execute(): Promise<User[]> {
+    try {
+      return await User.findAll({
+        where: { isActive: true },
+        attributes: { exclude: ["password"] },
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+```
+
+### ❌ Incorrect Service Implementation
+
+Avoid services with multiple responsibilities:
+
+```typescript
+// Bad - Multiple responsibilities
+export class UserService {
+  async createUser(data: CreateUserData): Promise<User> {
+    // User creation logic
+  }
+
+  async findUsers(): Promise<User[]> {
+    // User retrieval logic
+  }
+
+  async sendWelcomeEmail(user: User): Promise<void> {
+    // Email sending - Wrong responsibility!
+  }
+
+  async validateUserData(data: CreateUserData): Promise<boolean> {
+    // Validation logic - Should be separate service!
+  }
+}
+```
+
+## Controller Layer SRP Implementation
+
+### ✅ Correct Controller Implementation
+
+Controllers should only handle HTTP concerns:
+
+```typescript
+export class UserController {
+  constructor(
+    private readonly creatorUserService: CreatorUserService,
+    private readonly finderAllUserService: FinderAllUserService
+  ) {}
+
+  register = (req: Request, res: Response) => {
+    // Only HTTP handling - delegate business logic to service
+    this.creatorUserService
+      .execute(req.body)
+      .then((msg) => res.status(200).json(msg))
+      .catch((err) =>
+        res.status(500).json({ message: "internal server error" })
+      );
+  };
+
+  findAll = (req: Request, res: Response) => {
+    // Only HTTP handling
+    this.finderAllUserService
+      .execute()
+      .then((users) => res.status(200).json(users))
+      .catch((err) =>
+        res.status(500).json({ message: "internal server error" })
+      );
+  };
+}
+```
+
+### ❌ Incorrect Controller Implementation
+
+Avoid business logic in controllers:
+
+```typescript
+// Bad - Business logic in controller
+export class UserController {
+  register = (req: Request, res: Response) => {
+    // Validation logic - Wrong responsibility!
+    if (!req.body.email || !req.body.email.includes("@")) {
+      return res.status(400).json({ error: "Invalid email" });
+    }
+
+    // Database operations - Wrong responsibility!
+    User.create(req.body).then((user) => {
+      // Email sending - Wrong responsibility!
+      this.sendWelcomeEmail(user);
+      res.status(200).json(user);
+    });
+  };
+}
+```
+
+## Model Layer SRP Implementation
+
+### ✅ Correct Model Implementation
+
+Models should only represent data structure:
+
+```typescript
+@Table({ tableName: "user", timestamps: true })
+export class User extends Model {
+  @PrimaryKey
+  @Default(() => generateUUID())
+  @Column(DataType.UUID)
+  id: string;
+
+  @Column({ type: DataType.STRING(100), allowNull: false })
+  name: string;
+
+  @Column({ type: DataType.STRING(100), allowNull: false, unique: true })
+  email: string;
+
+  @Column({ type: DataType.STRING(255), allowNull: false })
+  password: string;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  isActive: boolean;
+
+  @CreatedAt
+  @Column(DataType.DATE)
+  createdAt: Date;
+
+  @UpdatedAt
+  @Column(DataType.DATE)
+  updatedAt: Date;
+}
+```
+
+### ❌ Incorrect Model Implementation
+
+Avoid business logic in models:
+
+```typescript
+// Bad - Business logic in model
+export class User extends Model {
+  // Data fields...
+
+  async sendWelcomeEmail(): Promise<void> {
+    // Email logic - Wrong responsibility!
+  }
+
+  async validatePassword(password: string): Promise<boolean> {
+    // Validation logic - Should be in service!
+  }
+
+  async hashPassword(): Promise<void> {
+    // Password hashing - Should be in service!
+  }
+}
+```
+
+## Database Layer SRP Implementation
+
+### ✅ Correct Database Implementation
+
+Database classes should only handle connection and configuration:
+
+```typescript
+export class PostgresDatabase {
+  public sequelize: Sequelize;
+
+  constructor(options: Options) {
+    this.sequelize = new Sequelize({
+      dialect: "postgres",
+      host: options.host,
+      port: options.port,
+      username: options.username,
+      password: options.password,
+      database: options.database,
+      logging: false,
+      models: [User],
+    });
+  }
+
+  async connect(): Promise<void> {
+    // Only connection logic
+  }
+
+  async sync(force: boolean): Promise<void> {
+    // Only synchronization logic
+  }
+}
+```
+
+## Error Handling SRP Implementation
+
+### ✅ Correct Error Implementation
+
+Error classes should only handle error representation:
+
+```typescript
+export class CustomError extends Error {
+  constructor(public message: string, public statusCode: number) {
+    super(message);
+  }
+
+  static badRequest(message: string): CustomError {
+    return new CustomError(message, 400);
+  }
+
+  static notFound(message: string): CustomError {
+    return new CustomError(message, 404);
+  }
+}
+```
+
+## SRP Best Practices
+
+### 1. Identify Responsibilities
+
+- **Controllers**: HTTP request/response handling
+- **Services**: Business logic execution
+- **Models**: Data structure representation
+- **Database**: Connection and data access
+- **Errors**: Error representation and categorization
+
+### 2. Separation Guidelines
+
+- Each class should have a single, well-defined purpose
+- If a class has multiple reasons to change, split it
+- Use composition over inheritance when combining responsibilities
+- Delegate complex operations to specialized services
+
+### 3. Naming Conventions
+
+- Use descriptive names that reflect the single responsibility
+- `CreatorUserService` - creates users only
+- `FinderAllUserService` - finds users only
+- `UserController` - handles HTTP for users only
+
+### 4. Testing Benefits
+
+- Single responsibility makes testing easier
+- Each class can be tested in isolation
+- Mocking dependencies becomes simpler
+- Test coverage is more focused and meaningful
+
+### 5. Maintenance Benefits
+
+- Changes are localized to specific classes
+- Reduced risk of breaking unrelated functionality
+- Easier to understand and modify code
+- Better code reusability

@@ -1,0 +1,163 @@
+---
+globs: *.ts,*.js
+description: Database and Data Access Patterns
+---
+
+# Database and Data Access Patterns
+
+## Database Configuration
+
+This project uses **PostgreSQL** as the primary database with **Sequelize ORM** and **MSSQL** for specific operations.
+
+### Database Connection Setup
+
+Follow the pattern established in [app.ts](mdc:src/app.ts):
+
+```typescript
+// PostgreSQL setup
+const postgresDatabase = new PostgresDatabase({
+  host: envs.DB_HOST,
+  port: envs.DB_PORT,
+  username: envs.DB_USERNAME,
+  password: envs.DB_PASSWORD,
+  database: envs.DB_NAME,
+});
+
+await postgresDatabase.connect();
+await postgresDatabase.sync(SYNCHRONIZE_FORCE);
+
+// MSSQL setup (when needed)
+const mssqlDatabase = new MssqlDatabase({
+  host: envs.MSSQL_DB_HOST,
+  port: envs.MSSQL_DB_PORT,
+  username: envs.MSSQL_DB_USERNAME,
+  password: envs.MSSQL_DB_PASSWORD,
+  database: envs.MSSQL_DB_NAME,
+});
+```
+
+## Model Definition Rules
+
+### Sequelize Model Structure
+
+Follow the pattern in [user.model.ts](mdc:src/data/postgres/models/user.model.ts):
+
+```typescript
+import {
+  Column,
+  CreatedAt,
+  DataType,
+  Default,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from "sequelize-typescript";
+
+@Table({
+  tableName: "user",
+  timestamps: true,
+})
+export class User extends Model {
+  @PrimaryKey
+  @Default(() => generateUUID())
+  @Column(DataType.UUID)
+  id: string;
+
+  @Column({
+    type: DataType.STRING(100),
+    allowNull: false,
+  })
+  name: string;
+
+  // ... other columns
+}
+```
+
+### Model Best Practices
+
+1. **Use Decorators**: Always use Sequelize decorators for model definition
+2. **Type Safety**: Define proper TypeScript types for all columns
+3. **UUID Primary Keys**: Use UUID with [generateUUID](mdc:src/config/generate-uuid.ts) for primary keys
+4. **Timestamps**: Enable timestamps for audit trails
+5. **Constraints**: Define proper constraints (allowNull, unique, etc.)
+6. **Relationships**: Define proper relationships between models
+
+### Database Operations
+
+#### Direct Model Usage in Services
+
+```typescript
+// In services, use models directly:
+import { User } from "../../../data";
+
+export class CreatorUserService {
+  async execute(data: CreateUserData) {
+    try {
+      const user = await User.create({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+      return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+```
+
+#### Database Connection Management
+
+- Use the centralized database classes: [PostgresDatabase](mdc:src/data/postgres/postgres-database.ts) and [MssqlDatabase](mdc:src/data/mssql/mssql-database.ts)
+- Handle connection errors gracefully
+- Use proper synchronization settings with [SYNCHRONIZE_FORCE](mdc:src/config/constants.ts)
+
+## Data Access Patterns
+
+### Service Layer Data Access
+
+- Services should directly use Sequelize models
+- Keep database operations in the service layer
+- Use proper error handling and type safety
+
+### Model Relationships
+
+- Define relationships using Sequelize associations
+- Use proper foreign key constraints
+- Maintain referential integrity
+
+### Query Optimization
+
+- Use appropriate Sequelize query methods
+- Implement proper indexing strategies
+- Use transactions for complex operations
+
+## Environment Configuration
+
+Database configuration should be centralized in [envs.ts](mdc:src/config/envs.ts):
+
+```typescript
+export const envs = {
+  // PostgreSQL
+  DB_NAME: get("DB_NAME").required().asString(),
+  DB_USERNAME: get("DB_USERNAME").required().asString(),
+  DB_PASSWORD: get("DB_PASSWORD").required().asString(),
+  DB_HOST: get("DB_HOST").required().asString(),
+  DB_PORT: get("DB_PORT").required().asPortNumber(),
+
+  // MSSQL
+  MSSQL_DB_NAME: get("MSSQL_DB_NAME").required().asString(),
+  // ... other MSSQL config
+};
+```
+
+## Best Practices
+
+1. **Type Safety**: Avoid `any` type in database operations
+2. **Error Handling**: Properly handle database connection and query errors
+3. **Model Organization**: Keep models in the `src/data/postgres/models/` directory
+4. **Connection Management**: Use centralized database connection classes
+5. **Migration Strategy**: Use Sequelize sync for development, migrations for production
+6. **Data Validation**: Validate data before database operations
+7. **Relationship Definition**: Properly define model relationships and constraints

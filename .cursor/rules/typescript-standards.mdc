@@ -1,0 +1,252 @@
+---
+globs: *.ts,*.tsx
+description: TypeScript and Code Quality Standards
+---
+
+# TypeScript and Code Quality Standards
+
+## Type Safety Rules
+
+### Avoid `any` Type
+
+**CRITICAL**: Never use the `any` type. Always define proper TypeScript interfaces and types.
+
+```typescript
+// ❌ Bad
+async execute(data: any) {
+  // ...
+}
+
+// ✅ Good
+interface CreateUserData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+async execute(data: CreateUserData): Promise<User> {
+  // ...
+}
+```
+
+### Interface Definitions
+
+Define clear interfaces for all data structures:
+
+```typescript
+// Service parameters
+interface ServiceParams {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// Service responses
+interface ServiceResponse {
+  success: boolean;
+  data?: any;
+  message?: string;
+}
+
+// Database model interfaces
+interface UserAttributes {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Code Organization Standards
+
+### File Naming Conventions
+
+- **Controllers**: `*.controller.ts`
+- **Services**: `*.service.ts`
+- **Models**: `*.model.ts`
+- **Routes**: `*.routes.ts`
+- **Interfaces**: `*.interface.ts` or `*.types.ts`
+
+### Import Organization
+
+Organize imports in this order:
+
+1. Node.js built-in modules
+2. External libraries
+3. Internal modules (relative imports)
+
+```typescript
+// Node.js modules
+import { Request, Response } from "express";
+
+// External libraries
+import { Router } from "express";
+import { Sequelize } from "sequelize-typescript";
+
+// Internal modules
+import { User } from "../../../data";
+import { CustomError } from "../../domain/errors/custom.error";
+import { handleError } from "../common/handleError";
+```
+
+### Class Structure
+
+Follow consistent class structure:
+
+```typescript
+export class ExampleService {
+  // Constructor with dependency injection
+  constructor(
+    private readonly dependency1: Dependency1,
+    private readonly dependency2: Dependency2
+  ) {}
+
+  // Public methods
+  async execute(params: ServiceParams): Promise<ServiceResult> {
+    try {
+      // Implementation
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Private helper methods
+  private validateInput(params: ServiceParams): void {
+    // Validation logic
+  }
+}
+```
+
+## Error Handling Standards
+
+### Custom Error Usage
+
+Always use the centralized [CustomError](mdc:src/domain/errors/custom.error.ts) class:
+
+```typescript
+import { CustomError } from "../../domain/errors/custom.error";
+
+// Throw specific errors
+throw CustomError.badRequest("Invalid input parameters");
+throw CustomError.notFound("Resource not found");
+throw CustomError.conflict("Resource already exists");
+```
+
+### Async/Await Pattern
+
+Use async/await consistently:
+
+```typescript
+// ✅ Good
+async execute(params: ServiceParams): Promise<ServiceResult> {
+  try {
+    const result = await this.databaseOperation(params);
+    return result;
+  } catch (error) {
+    throw error;
+  }
+}
+
+// ❌ Avoid mixing promises and async/await unnecessarily
+execute(params: ServiceParams) {
+  return this.databaseOperation(params)
+    .then(result => result)
+    .catch(error => { throw error; });
+}
+```
+
+## Database Model Standards
+
+### Sequelize Model Definition
+
+Follow the established pattern in [user.model.ts](mdc:src/data/postgres/models/user.model.ts):
+
+```typescript
+import {
+  Column,
+  CreatedAt,
+  DataType,
+  Default,
+  Model,
+  PrimaryKey,
+  Table,
+  UpdatedAt,
+} from "sequelize-typescript";
+
+@Table({
+  tableName: "table_name",
+  timestamps: true,
+})
+export class ModelName extends Model {
+  @PrimaryKey
+  @Default(() => generateUUID())
+  @Column(DataType.UUID)
+  id: string;
+
+  @Column({
+    type: DataType.STRING(100),
+    allowNull: false,
+  })
+  fieldName: string;
+
+  @CreatedAt
+  @Column(DataType.DATE)
+  createdAt: Date;
+
+  @UpdatedAt
+  @Column(DataType.DATE)
+  updatedAt: Date;
+}
+```
+
+## Code Quality Standards
+
+### Function and Method Naming
+
+- Use descriptive names: `createUser`, `findUserById`, `validateEmail`
+- Use consistent patterns: `execute()` for service methods
+- Use camelCase for methods and variables
+- Use PascalCase for classes and interfaces
+
+### Documentation
+
+- Add JSDoc comments for public methods
+- Document complex business logic
+- Include parameter and return type documentation
+
+```typescript
+/**
+ * Creates a new user in the system
+ * @param userData - User information to create
+ * @returns Promise<User> - The created user object
+ * @throws CustomError - If validation fails or user already exists
+ */
+async createUser(userData: CreateUserData): Promise<User> {
+  // Implementation
+}
+```
+
+### Consistent Formatting
+
+- Use 2 spaces for indentation
+- Use semicolons consistently
+- Use single quotes for strings
+- Use trailing commas in objects and arrays
+- Use meaningful variable names
+
+## Best Practices Summary
+
+1. **Type Safety**: Always use proper TypeScript types, never `any`
+2. **Interface Definitions**: Define clear interfaces for all data structures
+3. **Error Handling**: Use centralized error handling with CustomError
+4. **Async/Await**: Use async/await consistently
+5. **Naming Conventions**: Follow consistent naming patterns
+6. **Code Organization**: Organize imports and structure consistently
+7. **Documentation**: Add JSDoc comments for public APIs
+8. **Database Models**: Follow Sequelize decorator patterns
+9. **Dependency Injection**: Use constructor injection for dependencies
+10. **Single Responsibility**: Each class/method should have one clear purpose

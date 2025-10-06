@@ -1,0 +1,114 @@
+---
+globs: *.ts,*.js
+description: Error Handling and Validation Rules
+---
+
+# Error Handling and Validation
+
+## Custom Error Classes
+
+Use the centralized [CustomError](mdc:src/domain/errors/custom.error.ts) class for all business logic errors:
+
+```typescript
+import { CustomError } from "../../domain/errors/custom.error";
+
+// Usage examples:
+throw CustomError.badRequest("Invalid email format");
+throw CustomError.notFound("User not found");
+throw CustomError.conflict("Email already exists");
+throw CustomError.unprocessableEntity("Validation failed");
+```
+
+## Error Handling in Controllers
+
+Controllers should use the centralized [handleError](mdc:src/presentation/common/handleError.ts) function:
+
+```typescript
+import { handleError } from "../common/handleError";
+
+// In controller methods:
+this.exampleService
+  .execute(params)
+  .then((response) => {
+    return res.status(200).json(response);
+  })
+  .catch((err) => {
+    return handleError(err, res);
+  });
+```
+
+## Input Validation Rules
+
+### Parameter Validation
+
+- Validate all input parameters in controllers before passing to services
+- Use proper TypeScript types instead of `any`
+- Return appropriate HTTP status codes for validation errors
+
+```typescript
+// Good example:
+const payStatus = parseInt(req.query.payStatus as string) || 888;
+
+if (payStatus && isNaN(payStatus)) {
+  return res.status(400).json({
+    error: "El parametro payStatus es requerido y debe ser un numero",
+    example: "?payStatus=1",
+  });
+}
+```
+
+### Service Error Handling
+
+- Services should throw domain-specific errors
+- Let controllers handle HTTP response formatting
+- Use try-catch blocks in services for error propagation
+
+```typescript
+// In services:
+async execute(data: any) {
+  try {
+    // Business logic
+    return result;
+  } catch (error) {
+    throw error; // Propagate to controller
+  }
+}
+```
+
+## HTTP Status Code Standards
+
+- **200**: Success
+- **400**: Bad Request (validation errors)
+- **401**: Unauthorized
+- **403**: Forbidden
+- **404**: Not Found
+- **409**: Conflict (duplicate resources)
+- **422**: Unprocessable Entity (business logic errors)
+- **500**: Internal Server Error
+
+## Error Response Format
+
+Standardize error responses:
+
+```typescript
+// Success response
+{
+  "status": "success",
+  "data": { ... }
+}
+
+// Error response
+{
+  "status": "error",
+  "message": "Error description"
+}
+```
+
+## Best Practices
+
+1. **Centralized Error Handling**: Use the common `handleError` function
+2. **Domain-Specific Errors**: Create meaningful error messages
+3. **Type Safety**: Avoid `any` type in error handling
+4. **Consistent Format**: Use standardized error response format
+5. **Proper HTTP Codes**: Return appropriate status codes for different error types
+6. **Error Propagation**: Let services throw errors, controllers handle HTTP responses

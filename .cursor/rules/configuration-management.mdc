@@ -1,0 +1,136 @@
+---
+globs: *.ts,*.js
+description: Configuration and Environment Management Rules
+---
+
+# Configuration and Environment Management
+
+## Centralized Configuration
+
+All configuration should be centralized in the `src/config/` directory following the established pattern.
+
+### Environment Variables
+
+Use the centralized [envs.ts](mdc:src/config/envs.ts) file for all environment variable management:
+
+```typescript
+import "dotenv/config";
+import { get } from "env-var";
+
+export const envs = {
+  PORT: get("PORT").required().asPortNumber(),
+  DB_NAME: get("DB_NAME").required().asString(),
+  DB_USERNAME: get("DB_USERNAME").required().asString(),
+  DB_PASSWORD: get("DB_PASSWORD").required().asString(),
+  DB_HOST: get("DB_HOST").required().asString(),
+  DB_PORT: get("DB_PORT").required().asPortNumber(),
+
+  MSSQL_DB_PORT: get("MSSQL_DB_PORT").required().asPortNumber(),
+  MSSQL_DB_NAME: get("MSSQL_DB_NAME").required().asString(),
+  MSSQL_DB_PASSWORD: get("MSSQL_DB_PASSWORD").required().asString(),
+  MSSQL_DB_USERNAME: get("MSSQL_DB_USERNAME").required().asString(),
+  MSSQL_DB_HOST: get("MSSQL_DB_HOST").required().asString(),
+};
+```
+
+### Configuration Rules
+
+1. **Single Source of Truth**: All environment variables must be defined in [envs.ts](mdc:src/config/envs.ts)
+2. **Type Safety**: Use `env-var` package for type-safe environment variable parsing
+3. **Required Variables**: Mark all necessary variables as `.required()`
+4. **Proper Types**: Use appropriate type conversion methods (`.asString()`, `.asPortNumber()`, etc.)
+5. **No Direct Process.env**: Never use `process.env` directly in application code
+
+### Constants Management
+
+Use [constants.ts](mdc:src/config/constants.ts) for application-wide constants:
+
+```typescript
+export const SYNCHRONIZE_FORCE = false; // Database sync setting
+// Add other application constants here
+```
+
+### Configuration Usage
+
+Import configuration where needed:
+
+```typescript
+import { envs } from "./config/envs";
+import { SYNCHRONIZE_FORCE } from "./config/constants";
+
+// Usage in application
+const server = new Server({
+  port: envs.PORT,
+  routes: AppRoutes.routes,
+});
+```
+
+## Environment File Structure
+
+### .env File
+
+Create a `.env` file in the project root with all required variables:
+
+```env
+# Server Configuration
+PORT=3000
+
+# PostgreSQL Configuration
+DB_NAME=your_database_name
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+
+# MSSQL Configuration
+MSSQL_DB_NAME=your_mssql_database
+MSSQL_DB_USERNAME=your_mssql_username
+MSSQL_DB_PASSWORD=your_mssql_password
+MSSQL_DB_HOST=localhost
+MSSQL_DB_PORT=1433
+```
+
+### Environment Validation
+
+- All environment variables should be validated at application startup
+- Use `env-var` package for validation and type conversion
+- Fail fast if required environment variables are missing
+
+## Configuration Best Practices
+
+1. **Centralization**: Keep all configuration in the `src/config/` directory
+2. **Type Safety**: Use TypeScript types and `env-var` for validation
+3. **Documentation**: Document all required environment variables
+4. **Default Values**: Provide sensible defaults where appropriate
+5. **Security**: Never commit sensitive configuration to version control
+6. **Validation**: Validate all configuration at startup
+7. **Separation**: Keep environment-specific config separate from application constants
+
+## Utility Functions
+
+Use [generate-uuid.ts](mdc:src/config/generate-uuid.ts) for UUID generation:
+
+```typescript
+import { generateUUID } from "../../../config/generate-uuid";
+
+// Usage in models
+@Default(() => generateUUID())
+@Column(DataType.UUID)
+id: string;
+```
+
+## Configuration Architecture
+
+```
+src/config/
+├── envs.ts           # Environment variables
+├── constants.ts      # Application constants
+└── generate-uuid.ts  # Utility functions
+```
+
+This structure ensures:
+
+- Single source of truth for configuration
+- Type-safe environment variable handling
+- Centralized constant management
+- Reusable utility functions

@@ -1,0 +1,393 @@
+---
+alwaysApply: true
+description: SOLID Principles Implementation Guidelines
+---
+
+# SOLID Principles Implementation
+
+This project follows the SOLID principles to ensure maintainable, scalable, and robust code architecture.
+
+## 1. Single Responsibility Principle (SRP)
+
+**"A class should have only one reason to change"**
+
+### Service Layer Implementation
+
+Each service should handle only one specific business operation:
+
+```typescript
+// ✅ Good - Single responsibility
+export class CreatorUserService {
+  async execute(data: CreateUserData): Promise<User> {
+    // Only handles user creation logic
+  }
+}
+
+export class FinderAllUserService {
+  async execute(): Promise<User[]> {
+    // Only handles user retrieval logic
+  }
+}
+
+// ❌ Bad - Multiple responsibilities
+export class UserService {
+  async createUser() {
+    /* ... */
+  }
+  async findUsers() {
+    /* ... */
+  }
+  async sendEmail() {
+    /* ... */
+  } // Wrong responsibility
+  async validateData() {
+    /* ... */
+  } // Should be separate
+}
+```
+
+### Controller Responsibilities
+
+Controllers should only handle HTTP concerns:
+
+```typescript
+// ✅ Good - Only HTTP handling
+export class UserController {
+  register = (req: Request, res: Response) => {
+    this.creatorUserService
+      .execute(req.body)
+      .then((msg) => res.status(200).json(msg))
+      .catch((err) =>
+        res.status(500).json({ message: "internal server error" })
+      );
+  };
+}
+
+// ❌ Bad - Business logic in controller
+export class UserController {
+  register = (req: Request, res: Response) => {
+    // Business logic should be in service
+    if (req.body.email.includes("@")) {
+      // Validation logic
+    }
+    // Database operations
+    // Email sending
+  };
+}
+```
+
+### Model Responsibilities
+
+Models should only represent data structure:
+
+```typescript
+// ✅ Good - Only data representation
+@Table({ tableName: "user" })
+export class User extends Model {
+  @Column(DataType.STRING(100))
+  name: string;
+
+  @Column(DataType.STRING(100))
+  email: string;
+}
+
+// ❌ Bad - Business logic in model
+export class User extends Model {
+  // Data fields...
+
+  async sendWelcomeEmail() {
+    /* Wrong responsibility */
+  }
+  async validatePassword() {
+    /* Should be in service */
+  }
+}
+```
+
+## 2. Open/Closed Principle (OCP)
+
+**"Software entities should be open for extension, but closed for modification"**
+
+### Service Interface Pattern
+
+Define interfaces for services to allow extension:
+
+```typescript
+// Base interface
+interface UserServiceInterface {
+  execute(data: any): Promise<any>;
+}
+
+// Concrete implementations
+export class CreatorUserService implements UserServiceInterface {
+  async execute(data: CreateUserData): Promise<User> {
+    // Implementation
+  }
+}
+
+// Extension without modification
+export class CreatorUserWithValidationService implements UserServiceInterface {
+  constructor(private readonly validator: UserValidator) {}
+
+  async execute(data: CreateUserData): Promise<User> {
+    await this.validator.validate(data);
+    // Continue with creation logic
+  }
+}
+```
+
+### Database Abstraction
+
+Use database interfaces for different implementations:
+
+```typescript
+interface DatabaseInterface {
+  connect(): Promise<void>;
+  query(sql: string, params: any[]): Promise<any>;
+}
+
+export class PostgresDatabase implements DatabaseInterface {
+  // PostgreSQL implementation
+}
+
+export class MssqlDatabase implements DatabaseInterface {
+  // MSSQL implementation
+}
+```
+
+### Error Handling Extension
+
+Extend error handling without modifying existing code:
+
+```typescript
+// Base error class
+export class CustomError extends Error {
+  constructor(public message: string, public statusCode: number) {
+    super(message);
+  }
+}
+
+// Extension for specific domain errors
+export class UserValidationError extends CustomError {
+  constructor(message: string) {
+    super(message, 422);
+  }
+}
+
+export class DatabaseConnectionError extends CustomError {
+  constructor(message: string) {
+    super(message, 503);
+  }
+}
+```
+
+## 3. Liskov Substitution Principle (LSP)
+
+**"Objects of a superclass should be replaceable with objects of its subclasses"**
+
+### Service Substitution
+
+Services implementing the same interface should be interchangeable:
+
+```typescript
+interface UserServiceInterface {
+  execute(data: any): Promise<User>;
+}
+
+// Both implementations should work the same way
+export class CreatorUserService implements UserServiceInterface {
+  async execute(data: CreateUserData): Promise<User> {
+    // Standard implementation
+  }
+}
+
+export class CreatorUserWithLoggingService implements UserServiceInterface {
+  async execute(data: CreateUserData): Promise<User> {
+    // Same interface, same behavior, with additional logging
+    console.log("Creating user:", data);
+    const result = await this.createUser(data);
+    console.log("User created:", result.id);
+    return result;
+  }
+}
+```
+
+### Database Substitution
+
+Different database implementations should be interchangeable:
+
+```typescript
+// Both should work the same way
+const postgresDb = new PostgresDatabase(config);
+const mssqlDb = new MssqlDatabase(config);
+
+// Should be able to substitute one for the other
+await postgresDb.connect();
+await mssqlDb.connect();
+```
+
+## 4. Interface Segregation Principle (ISP)
+
+**"No client should be forced to depend on methods it does not use"**
+
+### Specific Service Interfaces
+
+Create focused interfaces instead of large ones:
+
+```typescript
+// ✅ Good - Segregated interfaces
+interface UserCreatorInterface {
+  createUser(data: CreateUserData): Promise<User>;
+}
+
+interface UserFinderInterface {
+  findUserById(id: string): Promise<User>;
+  findAllUsers(): Promise<User[]>;
+}
+
+interface UserUpdaterInterface {
+  updateUser(id: string, data: UpdateUserData): Promise<User>;
+}
+
+// ❌ Bad - Fat interface
+interface UserServiceInterface {
+  createUser(data: CreateUserData): Promise<User>;
+  findUserById(id: string): Promise<User>;
+  findAllUsers(): Promise<User[]>;
+  updateUser(id: string, data: UpdateUserData): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+  sendEmail(user: User): Promise<void>; // Not all clients need this
+  generateReport(): Promise<Report>; // Not all clients need this
+}
+```
+
+### Database Interface Segregation
+
+Separate read and write operations:
+
+```typescript
+interface DatabaseReaderInterface {
+  findById(id: string): Promise<any>;
+  findAll(): Promise<any[]>;
+  findByCondition(condition: any): Promise<any[]>;
+}
+
+interface DatabaseWriterInterface {
+  create(data: any): Promise<any>;
+  update(id: string, data: any): Promise<any>;
+  delete(id: string): Promise<void>;
+}
+
+interface DatabaseInterface
+  extends DatabaseReaderInterface,
+    DatabaseWriterInterface {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+}
+```
+
+## 5. Dependency Inversion Principle (DIP)
+
+**"Depend on abstractions, not concretions"**
+
+### Service Dependencies
+
+Depend on interfaces, not concrete implementations:
+
+```typescript
+// ✅ Good - Depend on abstraction
+export class UserController {
+  constructor(
+    private readonly userCreator: UserCreatorInterface,
+    private readonly userFinder: UserFinderInterface
+  ) {}
+}
+
+// ❌ Bad - Depend on concrete class
+export class UserController {
+  constructor(
+    private readonly creatorUserService: CreatorUserService,
+    private readonly finderAllUserService: FinderAllUserService
+  ) {}
+}
+```
+
+### Database Dependencies
+
+Use database abstractions:
+
+```typescript
+// ✅ Good - Depend on interface
+export class UserRepository {
+  constructor(private readonly database: DatabaseInterface) {}
+
+  async createUser(data: CreateUserData): Promise<User> {
+    return await this.database.create(data);
+  }
+}
+
+// ❌ Bad - Depend on concrete database
+export class UserRepository {
+  constructor(private readonly postgresDb: PostgresDatabase) {}
+}
+```
+
+### Configuration Dependencies
+
+Depend on configuration abstractions:
+
+```typescript
+interface ConfigInterface {
+  getDatabaseConfig(): DatabaseConfig;
+  getServerConfig(): ServerConfig;
+}
+
+export class DatabaseService {
+  constructor(private readonly config: ConfigInterface) {}
+
+  async connect(): Promise<void> {
+    const dbConfig = this.config.getDatabaseConfig();
+    // Use config
+  }
+}
+```
+
+## Implementation Guidelines
+
+### Service Layer
+
+- Each service should have a single, well-defined responsibility
+- Use interfaces to define service contracts
+- Implement dependency injection for service dependencies
+- Keep services focused on business logic only
+
+### Controller Layer
+
+- Controllers should only handle HTTP concerns
+- Delegate business logic to services
+- Use dependency injection for service dependencies
+- Keep controllers thin and focused
+
+### Data Layer
+
+- Models should only represent data structure
+- Use repository pattern for data access
+- Implement database abstractions
+- Keep data access logic separate from business logic
+
+### Configuration Layer
+
+- Centralize configuration management
+- Use interfaces for configuration dependencies
+- Make configuration testable and mockable
+- Keep configuration concerns separate from business logic
+
+## Best Practices
+
+1. **Interface-First Design**: Define interfaces before implementations
+2. **Dependency Injection**: Use constructor injection for all dependencies
+3. **Single Responsibility**: Each class should have one reason to change
+4. **Abstraction**: Depend on abstractions, not concrete implementations
+5. **Extension**: Design for extension without modification
+6. **Segregation**: Create focused, specific interfaces
+7. **Substitution**: Ensure derived classes can replace base classes

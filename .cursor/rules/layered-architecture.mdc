@@ -1,0 +1,80 @@
+---
+alwaysApply: true
+description: Layered Architecture Pattern Rules
+---
+
+# Layered Architecture Pattern
+
+This project follows a **Layered Architecture** pattern with clear separation of concerns across four main layers:
+
+## Layer Structure
+
+### 1. Presentation Layer (`src/presentation/`)
+
+- **Controllers**: Handle HTTP requests/responses, input validation, and orchestrate service calls
+- **Routes**: Define API endpoints and route handlers
+- **Common**: Shared presentation utilities like error handlers
+
+**Rules:**
+
+- Controllers should be thin and delegate business logic to services
+- Use dependency injection for service dependencies
+- Handle HTTP-specific concerns only (status codes, response formatting)
+- Validate input parameters and return appropriate HTTP responses
+
+### 2. Domain Layer (`src/domain/`)
+
+- **Entities**: Core business objects and domain models
+- **Errors**: Custom error classes for business logic
+- **Interfaces**: Contracts and abstractions
+
+**Rules:**
+
+- Contains pure business logic without external dependencies
+- Define domain-specific errors with appropriate HTTP status codes
+- Keep domain models independent of infrastructure concerns
+
+### 3. Data Layer (`src/data/`)
+
+- **Models**: Database entity definitions (Sequelize models)
+- **Database**: Database connection and configuration
+- **Repositories**: Data access patterns (when needed)
+
+**Rules:**
+
+- Use Sequelize decorators for model definitions
+- Keep database-specific logic isolated
+- Models should map to database tables with proper relationships
+- Use proper TypeScript types, avoid `any` type
+
+### 4. Configuration Layer (`src/config/`)
+
+- **Environment**: Centralized environment variable management
+- **Constants**: Application-wide constants
+- **Utilities**: Shared configuration utilities
+
+**Rules:**
+
+- Centralize all environment variables in [envs.ts](mdc:src/config/envs.ts)
+- Use `env-var` package for type-safe environment variable parsing
+- Define constants in [constants.ts](mdc:src/config/constants.ts)
+
+## Layer Dependencies
+
+```
+Presentation → Domain ← Data
+     ↓           ↓
+Configuration ←────┘
+```
+
+- **Presentation** can depend on **Domain** and **Data**
+- **Domain** should be independent of other layers
+- **Data** can depend on **Domain** and **Configuration**
+- **Configuration** is used by all layers
+
+## File Organization
+
+- Group related functionality in feature-based directories
+- Use consistent naming: `*.controller.ts`, `*.service.ts`, `*.model.ts`
+- Keep routes, controllers, and services in the same feature directory
+- Export main classes and interfaces from index files

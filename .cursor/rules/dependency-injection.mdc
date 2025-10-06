@@ -1,0 +1,89 @@
+---
+globs: *.ts,*.js
+description: Dependency Injection and Service Pattern Rules
+---
+
+# Dependency Injection and Service Pattern
+
+## Service Layer Pattern
+
+Services contain the core business logic and should be injected into controllers.
+
+### Service Implementation Rules
+
+1. **Single Responsibility**: Each service should handle one specific business operation
+2. **Async Operations**: All service methods should be async and return Promises
+3. **Error Handling**: Services should throw domain-specific errors, not handle HTTP responses
+4. **Type Safety**: Avoid using `any` type, define proper interfaces for parameters and return types
+
+### Service Structure
+
+```typescript
+export class ExampleService {
+  async execute(params: ServiceParams): Promise<ServiceResult> {
+    try {
+      // Business logic here
+      return result;
+    } catch (error) {
+      throw error; // Let controller handle HTTP response
+    }
+  }
+}
+```
+
+## Dependency Injection in Controllers
+
+Controllers should receive services through constructor injection:
+
+```typescript
+export class UserController {
+  constructor(
+    private readonly creatorUserService: CreatorUserService,
+    private readonly finderAllUserService: FinderAllUserService
+  ) {}
+}
+```
+
+## Route Configuration
+
+Routes should instantiate services and inject them into controllers:
+
+```typescript
+export class UserRoutes {
+  static get routes(): Router {
+    const router = Router();
+
+    const userController = new UserController(
+      new CreatorUserService(),
+      new FinderAllUserService()
+    );
+
+    router.post("/register", userController.register);
+    return router;
+  }
+}
+```
+
+## Interface Definitions
+
+Define interfaces for service contracts to ensure type safety:
+
+```typescript
+interface UserServiceInterface {
+  execute(data: CreateUserData): Promise<User>;
+}
+
+interface CreateUserData {
+  name: string;
+  email: string;
+  password: string;
+}
+```
+
+## Best Practices
+
+1. **Avoid `any` type**: Always define proper TypeScript interfaces
+2. **Service Naming**: Use descriptive names like `CreatorUserService`, `FinderAllUserService`
+3. **Method Naming**: Use `execute()` as the main method name for services
+4. **Error Propagation**: Let services throw errors, handle HTTP responses in controllers
+5. **Single Purpose**: Each service should handle one specific business operation

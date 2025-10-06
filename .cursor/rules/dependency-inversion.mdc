@@ -1,0 +1,371 @@
+---
+globs: *.ts,*.js
+description: Dependency Inversion Principle Implementation
+---
+
+# Dependency Inversion Principle (DIP)
+
+**"Depend on abstractions, not concretions"**
+
+## Service Layer DIP Implementation
+
+### ✅ Correct Service Dependencies
+
+Depend on interfaces, not concrete implementations:
+
+```typescript
+// Define service interfaces
+interface UserCreatorInterface {
+  execute(data: CreateUserData): Promise<User>;
+}
+
+interface UserFinderInterface {
+  execute(): Promise<User[]>;
+}
+
+// Service implementations
+export class CreatorUserService implements UserCreatorInterface {
+  async execute(data: CreateUserData): Promise<User> {
+    // Implementation
+  }
+}
+
+export class FinderAllUserService implements UserFinderInterface {
+  async execute(): Promise<User[]> {
+    // Implementation
+  }
+}
+
+// Controller depends on abstractions
+export class UserController {
+  constructor(
+    private readonly userCreator: UserCreatorInterface,
+    private readonly userFinder: UserFinderInterface
+  ) {}
+
+  register = (req: Request, res: Response) => {
+    this.userCreator
+      .execute(req.body)
+      .then((msg) => res.status(200).json(msg))
+      .catch((err) =>
+        res.status(500).json({ message: "internal server error" })
+      );
+  };
+}
+```
+
+### ❌ Incorrect Service Dependencies
+
+Avoid depending on concrete classes:
+
+```typescript
+// Bad - Depend on concrete implementations
+export class UserController {
+  constructor(
+    private readonly creatorUserService: CreatorUserService,
+    private readonly finderAllUserService: FinderAllUserService
+  ) {}
+}
+```
+
+## Database Layer DIP Implementation
+
+### ✅ Correct Database Dependencies
+
+Use database abstractions:
+
+```typescript
+// Database interface
+interface DatabaseInterface {
+  connect(): Promise<void>;
+  query(sql: string, params: any[]): Promise<any>;
+  create(data: any): Promise<any>;
+  findById(id: string): Promise<any>;
+  findAll(): Promise<any[]>;
+}
+
+// PostgreSQL implementation
+export class PostgresDatabase implements DatabaseInterface {
+  async connect(): Promise<void> {
+    // PostgreSQL connection logic
+  }
+
+  async query(sql: string, params: any[]): Promise<any> {
+    // PostgreSQL query logic
+  }
+
+  async create(data: any): Promise<any> {
+    // PostgreSQL create logic
+  }
+}
+
+// MSSQL implementation
+export class MssqlDatabase implements DatabaseInterface {
+  async connect(): Promise<void> {
+    // MSSQL connection logic
+  }
+
+  async query(sql: string, params: any[]): Promise<any> {
+    // MSSQL query logic
+  }
+
+  async create(data: any): Promise<any> {
+    // MSSQL create logic
+  }
+}
+
+// Repository depends on abstraction
+export class UserRepository {
+  constructor(private readonly database: DatabaseInterface) {}
+
+  async createUser(data: CreateUserData): Promise<User> {
+    return await this.database.create(data);
+  }
+
+  async findUserById(id: string): Promise<User> {
+    return await this.database.findById(id);
+  }
+}
+```
+
+### ❌ Incorrect Database Dependencies
+
+Avoid depending on concrete database classes:
+
+```typescript
+// Bad - Depend on concrete database
+export class UserRepository {
+  constructor(private readonly postgresDb: PostgresDatabase) {}
+
+  async createUser(data: CreateUserData): Promise<User> {
+    return await this.postgresDb.create(data);
+  }
+}
+```
+
+## Configuration Layer DIP Implementation
+
+### ✅ Correct Configuration Dependencies
+
+Use configuration abstractions:
+
+```typescript
+// Configuration interface
+interface ConfigInterface {
+  getDatabaseConfig(): DatabaseConfig;
+  getServerConfig(): ServerConfig;
+  getEnvironment(): string;
+}
+
+// Environment configuration implementation
+export class EnvironmentConfig implements ConfigInterface {
+  getDatabaseConfig(): DatabaseConfig {
+    return {
+      host: envs.DB_HOST,
+      port: envs.DB_PORT,
+      username: envs.DB_USERNAME,
+      password: envs.DB_PASSWORD,
+      database: envs.DB_NAME,
+    };
+  }
+
+  getServerConfig(): ServerConfig {
+    return {
+      port: envs.PORT,
+    };
+  }
+
+  getEnvironment(): string {
+    return process.env.NODE_ENV || "development";
+  }
+}
+
+// Service depends on configuration abstraction
+export class DatabaseService {
+  constructor(private readonly config: ConfigInterface) {}
+
+  async connect(): Promise<void> {
+    const dbConfig = this.config.getDatabaseConfig();
+    // Use config to establish connection
+  }
+}
+```
+
+## Error Handling DIP Implementation
+
+### ✅ Correct Error Dependencies
+
+Use error abstractions:
+
+```typescript
+// Error interface
+interface ErrorHandlerInterface {
+  handle(error: Error, response: Response): void;
+}
+
+// Custom error handler implementation
+export class CustomErrorHandler implements ErrorHandlerInterface {
+  handle(error: Error, response: Response): void {
+    if (error instanceof CustomError) {
+      return response.status(error.statusCode).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+
+    return response.status(500).json({
+      status: "fail",
+      message: "internal server error",
+    });
+  }
+}
+
+// Controller depends on error handler abstraction
+export class UserController {
+  constructor(
+    private readonly userCreator: UserCreatorInterface,
+    private readonly errorHandler: ErrorHandlerInterface
+  ) {}
+
+  register = (req: Request, res: Response) => {
+    this.userCreator
+      .execute(req.body)
+      .then((msg) => res.status(200).json(msg))
+      .catch((err) => this.errorHandler.handle(err, res));
+  };
+}
+```
+
+## Validation Layer DIP Implementation
+
+### ✅ Correct Validation Dependencies
+
+Use validation abstractions:
+
+```typescript
+// Validation interface
+interface ValidatorInterface<T> {
+  validate(data: T): Promise<ValidationResult>;
+}
+
+// User validation implementation
+export class UserValidator implements ValidatorInterface<CreateUserData> {
+  async validate(data: CreateUserData): Promise<ValidationResult> {
+    const errors: string[] = [];
+
+    if (!data.name || data.name.trim().length === 0) {
+      errors.push("Name is required");
+    }
+
+    if (!data.email || !data.email.includes("@")) {
+      errors.push("Valid email is required");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors,
+    };
+  }
+}
+
+// Service depends on validator abstraction
+export class CreatorUserService implements UserCreatorInterface {
+  constructor(private readonly validator: ValidatorInterface<CreateUserData>) {}
+
+  async execute(data: CreateUserData): Promise<User> {
+    const validation = await this.validator.validate(data);
+
+    if (!validation.isValid) {
+      throw CustomError.badRequest(validation.errors.join(", "));
+    }
+
+    // Continue with user creation
+  }
+}
+```
+
+## Dependency Injection Container
+
+### ✅ Service Registration
+
+Use a simple dependency injection pattern:
+
+```typescript
+// Service container
+class ServiceContainer {
+  private services = new Map<string, any>();
+
+  register<T>(name: string, service: T): void {
+    this.services.set(name, service);
+  }
+
+  get<T>(name: string): T {
+    const service = this.services.get(name);
+    if (!service) {
+      throw new Error(`Service ${name} not found`);
+    }
+    return service;
+  }
+}
+
+// Service registration
+const container = new ServiceContainer();
+
+// Register implementations
+container.register("userCreator", new CreatorUserService());
+container.register("userFinder", new FinderAllUserService());
+container.register("userValidator", new UserValidator());
+container.register("errorHandler", new CustomErrorHandler());
+
+// Controller with injected dependencies
+export class UserController {
+  constructor(
+    private readonly userCreator: UserCreatorInterface = container.get(
+      "userCreator"
+    ),
+    private readonly userFinder: UserFinderInterface = container.get(
+      "userFinder"
+    ),
+    private readonly errorHandler: ErrorHandlerInterface = container.get(
+      "errorHandler"
+    )
+  ) {}
+}
+```
+
+## DIP Best Practices
+
+### 1. Interface Definition
+
+- Define interfaces before implementations
+- Keep interfaces focused and specific
+- Use generic interfaces when appropriate
+- Document interface contracts clearly
+
+### 2. Dependency Injection
+
+- Use constructor injection for required dependencies
+- Use property injection for optional dependencies
+- Avoid service locator pattern
+- Use dependency injection containers for complex scenarios
+
+### 3. Abstraction Levels
+
+- Create abstractions at the right level of detail
+- Don't over-abstract simple operations
+- Focus on behavior, not implementation details
+- Use composition over inheritance
+
+### 4. Testing Benefits
+
+- Easy to mock dependencies for unit testing
+- Test business logic in isolation
+- Verify interactions between components
+- Create test doubles for external dependencies
+
+### 5. Configuration Management
+
+- Inject configuration through interfaces
+- Make configuration testable and mockable
+- Separate configuration from business logic
+- Use environment-specific implementations

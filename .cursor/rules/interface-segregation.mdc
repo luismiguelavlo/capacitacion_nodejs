@@ -1,0 +1,385 @@
+---
+globs: *.ts,*.js
+description: Interface Segregation Principle Implementation
+---
+
+# Interface Segregation Principle (ISP)
+
+**"No client should be forced to depend on methods it does not use"**
+
+## Service Layer ISP Implementation
+
+### ✅ Correct Interface Segregation
+
+Create focused, specific interfaces:
+
+```typescript
+// Segregated interfaces - each with single responsibility
+interface UserCreatorInterface {
+  execute(data: CreateUserData): Promise<User>;
+}
+
+interface UserFinderInterface {
+  findById(id: string): Promise<User>;
+  findAll(): Promise<User[]>;
+  findByEmail(email: string): Promise<User>;
+}
+
+interface UserUpdaterInterface {
+  update(id: string, data: UpdateUserData): Promise<User>;
+}
+
+interface UserDeleterInterface {
+  delete(id: string): Promise<void>;
+}
+
+// Service implementations
+export class CreatorUserService implements UserCreatorInterface {
+  async execute(data: CreateUserData): Promise<User> {
+    // Implementation
+  }
+}
+
+export class FinderAllUserService implements UserFinderInterface {
+  async findById(id: string): Promise<User> {
+    // Implementation
+  }
+
+  async findAll(): Promise<User[]> {
+    // Implementation
+  }
+
+  async findByEmail(email: string): Promise<User> {
+    // Implementation
+  }
+}
+
+// Controllers depend only on what they need
+export class UserController {
+  constructor(
+    private readonly userCreator: UserCreatorInterface,
+    private readonly userFinder: UserFinderInterface
+  ) {}
+
+  // Only uses creator and finder methods
+}
+```
+
+### ❌ Incorrect Interface Design
+
+Avoid fat interfaces that force clients to depend on unused methods:
+
+```typescript
+// Bad - Fat interface with multiple responsibilities
+interface UserServiceInterface {
+  // Creation
+  createUser(data: CreateUserData): Promise<User>;
+
+  // Finding
+  findUserById(id: string): Promise<User>;
+  findAllUsers(): Promise<User[]>;
+  findUserByEmail(email: string): Promise<User>;
+
+  // Updating
+  updateUser(id: string, data: UpdateUserData): Promise<User>;
+
+  // Deleting
+  deleteUser(id: string): Promise<void>;
+
+  // Email operations - Not all clients need this
+  sendWelcomeEmail(user: User): Promise<void>;
+  sendPasswordResetEmail(email: string): Promise<void>;
+
+  // Reporting - Not all clients need this
+  generateUserReport(): Promise<Report>;
+  exportUsersToCSV(): Promise<string>;
+
+  // Analytics - Not all clients need this
+  getUserStatistics(): Promise<UserStats>;
+  trackUserActivity(userId: string): Promise<void>;
+}
+```
+
+## Database Layer ISP Implementation
+
+### ✅ Correct Database Interface Segregation
+
+Separate read and write operations:
+
+```typescript
+// Read operations interface
+interface DatabaseReaderInterface {
+  findById(id: string): Promise<any>;
+  findAll(): Promise<any[]>;
+  findByCondition(condition: any): Promise<any[]>;
+  count(condition?: any): Promise<number>;
+}
+
+// Write operations interface
+interface DatabaseWriterInterface {
+  create(data: any): Promise<any>;
+  update(id: string, data: any): Promise<any>;
+  delete(id: string): Promise<void>;
+  bulkCreate(data: any[]): Promise<any[]>;
+}
+
+// Connection management interface
+interface DatabaseConnectionInterface {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
+}
+
+// Combined interface for full database operations
+interface DatabaseInterface
+  extends DatabaseReaderInterface,
+    DatabaseWriterInterface,
+    DatabaseConnectionInterface {}
+
+// Clients can depend only on what they need
+export class UserRepository {
+  constructor(
+    private readonly reader: DatabaseReaderInterface,
+    private readonly writer: DatabaseWriterInterface
+  ) {}
+
+  // Only uses read and write operations
+}
+
+export class DatabaseHealthCheck {
+  constructor(private readonly connection: DatabaseConnectionInterface) {}
+
+  async checkHealth(): Promise<boolean> {
+    return this.connection.isConnected();
+  }
+}
+```
+
+## Validation Layer ISP Implementation
+
+### ✅ Correct Validation Interface Segregation
+
+Create specific validation interfaces:
+
+```typescript
+// Basic validation interface
+interface BasicValidatorInterface<T> {
+  validate(data: T): Promise<ValidationResult>;
+}
+
+// Email validation interface
+interface EmailValidatorInterface {
+  validateEmail(email: string): Promise<boolean>;
+  validateEmailFormat(email: string): Promise<boolean>;
+}
+
+// Password validation interface
+interface PasswordValidatorInterface {
+  validatePassword(password: string): Promise<boolean>;
+  validatePasswordStrength(password: string): Promise<PasswordStrength>;
+}
+
+// User validation interface
+interface UserValidatorInterface
+  extends BasicValidatorInterface<CreateUserData> {
+  validateName(name: string): Promise<boolean>;
+  validateEmail(email: string): Promise<boolean>;
+  validatePassword(password: string): Promise<boolean>;
+}
+
+// Service implementations
+export class EmailValidator implements EmailValidatorInterface {
+  async validateEmail(email: string): Promise<boolean> {
+    // Implementation
+  }
+
+  async validateEmailFormat(email: string): Promise<boolean> {
+    // Implementation
+  }
+}
+
+export class PasswordValidator implements PasswordValidatorInterface {
+  async validatePassword(password: string): Promise<boolean> {
+    // Implementation
+  }
+
+  async validatePasswordStrength(password: string): Promise<PasswordStrength> {
+    // Implementation
+  }
+}
+
+// Services depend only on what they need
+export class UserRegistrationService {
+  constructor(
+    private readonly emailValidator: EmailValidatorInterface,
+    private readonly passwordValidator: PasswordValidatorInterface
+  ) {}
+
+  async registerUser(data: CreateUserData): Promise<User> {
+    await this.emailValidator.validateEmail(data.email);
+    await this.passwordValidator.validatePassword(data.password);
+    // Continue with registration
+  }
+}
+```
+
+## Error Handling ISP Implementation
+
+### ✅ Correct Error Interface Segregation
+
+Separate error handling concerns:
+
+```typescript
+// Basic error handling interface
+interface ErrorHandlerInterface {
+  handle(error: Error, response: Response): void;
+}
+
+// Validation error handling interface
+interface ValidationErrorHandlerInterface {
+  handleValidationError(errors: string[], response: Response): void;
+}
+
+// Database error handling interface
+interface DatabaseErrorHandlerInterface {
+  handleDatabaseError(error: Error, response: Response): void;
+}
+
+// Custom error handler implementation
+export class CustomErrorHandler implements ErrorHandlerInterface {
+  handle(error: Error, response: Response): void {
+    if (error instanceof CustomError) {
+      return response.status(error.statusCode).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+
+    return response.status(500).json({
+      status: "fail",
+      message: "internal server error",
+    });
+  }
+}
+
+// Validation error handler implementation
+export class ValidationErrorHandler implements ValidationErrorHandlerInterface {
+  handleValidationError(errors: string[], response: Response): void {
+    return response.status(422).json({
+      status: "error",
+      message: "Validation failed",
+      errors: errors,
+    });
+  }
+}
+
+// Controllers depend only on what they need
+export class UserController {
+  constructor(
+    private readonly errorHandler: ErrorHandlerInterface,
+    private readonly validationErrorHandler: ValidationErrorHandlerInterface
+  ) {}
+
+  register = (req: Request, res: Response) => {
+    // Use appropriate error handler based on error type
+  };
+}
+```
+
+## Configuration ISP Implementation
+
+### ✅ Correct Configuration Interface Segregation
+
+Separate configuration concerns:
+
+```typescript
+// Database configuration interface
+interface DatabaseConfigInterface {
+  getDatabaseConfig(): DatabaseConfig;
+  getConnectionString(): string;
+}
+
+// Server configuration interface
+interface ServerConfigInterface {
+  getServerConfig(): ServerConfig;
+  getPort(): number;
+  getHost(): string;
+}
+
+// Environment configuration interface
+interface EnvironmentConfigInterface {
+  getEnvironment(): string;
+  isDevelopment(): boolean;
+  isProduction(): boolean;
+  isTest(): boolean;
+}
+
+// Combined configuration interface
+interface ConfigInterface
+  extends DatabaseConfigInterface,
+    ServerConfigInterface,
+    EnvironmentConfigInterface {}
+
+// Services depend only on what they need
+export class DatabaseService {
+  constructor(private readonly dbConfig: DatabaseConfigInterface) {}
+
+  async connect(): Promise<void> {
+    const config = this.dbConfig.getDatabaseConfig();
+    // Use database configuration
+  }
+}
+
+export class ServerService {
+  constructor(private readonly serverConfig: ServerConfigInterface) {}
+
+  start(): void {
+    const config = this.serverConfig.getServerConfig();
+    // Use server configuration
+  }
+}
+```
+
+## ISP Best Practices
+
+### 1. Interface Design
+
+- Create small, focused interfaces
+- Each interface should represent a single concept
+- Avoid interfaces with too many methods
+- Use composition to combine interfaces when needed
+
+### 2. Client Dependencies
+
+- Clients should depend only on methods they actually use
+- If a client doesn't use a method, it shouldn't depend on it
+- Split large interfaces into smaller, more focused ones
+- Use interface inheritance carefully
+
+### 3. Interface Naming
+
+- Use descriptive names that reflect the interface's purpose
+- Use suffixes like `Interface`, `Service`, `Handler` for clarity
+- Group related interfaces in the same namespace
+- Document interface contracts clearly
+
+### 4. Implementation Flexibility
+
+- Allow different implementations of the same interface
+- Support multiple interfaces in a single class
+- Use interface composition for complex scenarios
+- Keep implementations focused and cohesive
+
+### 5. Testing Benefits
+
+- Easier to create focused test doubles
+- Test specific behaviors in isolation
+- Mock only the methods that are actually used
+- Reduce test complexity and maintenance
+
+### 6. Evolution and Maintenance
+
+- Interfaces are easier to evolve when they're focused
+- Changes to one interface don't affect unrelated clients
+- New implementations can be added without changing existing code
+- Better separation of concerns and modularity
